@@ -25,7 +25,6 @@ ffbuild_depends() {
     echo chromaprint
     echo dav1d
     echo davs2
-    echo dvd
     echo fdk-aac
     echo ffnvcodec
     echo frei0r
@@ -34,7 +33,6 @@ ffbuild_depends() {
     echo libaribb24
     echo libaribcaption
     echo libass
-    echo libbluray
     echo libcurl
     echo libjxl
     echo libmp3lame
@@ -56,9 +54,7 @@ ffbuild_depends() {
     echo openh264
     echo openjpeg
     echo openmpt
-    echo rav1e
     echo rubberband
-    echo rustdedup
     echo schannel
     echo sdl
     echo snappy

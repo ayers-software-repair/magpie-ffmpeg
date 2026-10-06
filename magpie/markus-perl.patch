@@ -1,0 +1,58 @@
+diff --git a/src/95-ffmpeg.sh b/src/95-ffmpeg.sh
+index efe472b..ae772a7 100644
+--- a/src/95-ffmpeg.sh
++++ b/src/95-ffmpeg.sh
+@@ -11,10 +11,7 @@
+ # the .git -> .git.bak dance below, which keeps ffmpeg from describing *this*
+ # repository instead of its own tree.
+ 
+-EXTRA_VERSION=""
+-if [[ "$OSTYPE" == "darwin"* ]]; then
+-    EXTRA_VERSION="${FFMPEG_VERSION}"
+-fi
++EXTRA_VERSION="${MAGPIE_EXTRA_VERSION:?}"
+ 
+ if [ -d "$CWD/.git" ]; then
+     echo -e "\nTemporarily moving .git dir to .git.bak to workaround ffmpeg build bug" #causing ffmpeg version number to be wrong
+@@ -45,7 +42,9 @@ if [ "$FFMPEG_VERSION" = "snapshot" ]; then
+ else
+     FFMPEG_ARCHIVE="FFmpeg-release-$FFMPEG_VERSION.tar.gz"
+ fi
+-download "$(ffmpeg_tarball_url "$FFMPEG_VERSION")" "$FFMPEG_ARCHIVE"
++download "${MAGPIE_TARBALL_URL:?}|${MAGPIE_TARBALL_SHA256:?}"
++# The release tarball's VERSION file reads 8.1.3; name the git tag as the other targets do.
++echo "${MAGPIE_FFMPEG_TAG:?}" >VERSION
+ 
+ # Keyed on X11 actually being absent, not on the architecture: an Intel Mac with
+ # XQuartz keeps x11grab/xcbgrab/xv. vaapi needs no disable - build_vaapi() in
+@@ -58,7 +57,7 @@ fi
+ 
+ # shellcheck disable=SC2086
+ 
+-execute ./configure "${CONFIGURE_OPTIONS[@]}" \
++execute ./configure "${CONFIGURE_OPTIONS[@]}" ${MAGPIE_CONFIGURE_FLAGS:?} \
+     --disable-debug \
+     --disable-shared \
+     --enable-pthreads \
+diff --git a/src/packages/30-video.sh b/src/packages/30-video.sh
+index 36be4f0..0836be5 100644
+--- a/src/packages/30-video.sh
++++ b/src/packages/30-video.sh
+@@ -186,8 +186,6 @@ build_rav1e() {
+ }
+ 
+ build_x264() {
+-    if ! $NONFREE_AND_GPL; then return; fi
+-
+     if build "x264" "${VER_X264[0]}"; then
+         download "https://code.videolan.org/videolan/x264/-/archive/$CURRENT_PACKAGE_VERSION/x264-$CURRENT_PACKAGE_VERSION.tar.gz" "x264-$CURRENT_PACKAGE_VERSION.tar.gz"
+         cd "${PACKAGES}/x264-$CURRENT_PACKAGE_VERSION" || exit
+@@ -208,8 +206,6 @@ build_x264() {
+ }
+ 
+ build_x265() {
+-    if ! $NONFREE_AND_GPL; then return; fi
+-
+     if build "x265" "${VER_X265[0]}"; then
+         download "https://bitbucket.org/multicoreware/x265_git/get/$X265_COMMIT.tar.gz" "x265-$CURRENT_PACKAGE_VERSION.tar.gz"
+ 

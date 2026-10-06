@@ -9,10 +9,10 @@ fi
 TAGNAME="$1"
 shift
 
-REPO="${GITHUB_REPOSITORY:-BtbN/FFmpeg-Builds}"
+REPO="${GITHUB_REPOSITORY:-ayers-software-repair/magpie-ffmpeg}"
 DL_BASE="https://github.com/${REPO}/releases/download/${TAGNAME}"
 
-TARGETS=(win64 winarm64 win32 linux64 linuxarm64 linux32)
+TARGETS=(win64 winarm64 win32 linux64 linuxarm64 linux32 macos64 macosarm64)
 VARIANTS=(gpl gpl-shared lgpl lgpl-shared)
 
 target_name() {
@@ -23,6 +23,8 @@ target_name() {
         linux64)     echo "Linux (x86_64)" ;;
         linuxarm64)  echo "Linux (arm64)" ;;
         linux32)     echo "Linux (x86)" ;;
+        macos64)     echo "macOS (x86_64)" ;;
+        macosarm64)  echo "macOS (arm64)" ;;
         *)           echo "$1" ;;
     esac
 }

@@ -1,4 +1,4 @@
-FF_CONFIGURE="--enable-gpl --enable-version3 --disable-debug"
+FF_CONFIGURE="--enable-gpl --enable-version3 --disable-debug --disable-libdvdread --disable-libdvdnav --disable-libbluray --disable-librav1e"
 FF_CFLAGS=""
 FF_CXXFLAGS=""
 FF_LDFLAGS=""

@@ -3,12 +3,18 @@ set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 source util/vars.sh
+source magpie/vars.sh
 
 source "variants/${TARGET}-${VARIANT}.sh"
 
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
 done
+
+if [[ " ${ADDINS[*]} " != *" ${MAGPIE_FFMPEG_SERIES} "* ]]; then
+    echo "The pinned FFmpeg ${MAGPIE_FFMPEG_TAG} needs the ${MAGPIE_FFMPEG_SERIES} addin."
+    exit 1
+fi
 
 if docker info -f "{{println .SecurityOptions}}" | grep rootless >/dev/null 2>&1; then
     UIDARGS=()
@@ -21,8 +27,7 @@ mkdir ffbuild
 
 FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/FFmpeg/FFmpeg.git}"
 FFMPEG_REPO="${FFMPEG_REPO_OVERRIDE:-$FFMPEG_REPO}"
-GIT_BRANCH="${GIT_BRANCH:-master}"
-GIT_BRANCH="${GIT_BRANCH_OVERRIDE:-$GIT_BRANCH}"
+GIT_BRANCH="$MAGPIE_FFMPEG_TAG"
 
 BUILD_SCRIPT="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
@@ -39,12 +44,13 @@ cat <<EOF >"$BUILD_SCRIPT"
 
     git clone --filter=blob:none --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
     cd ffmpeg
+    test "\$(git rev-parse HEAD)" = '$MAGPIE_FFMPEG_COMMIT' || { echo "Checked out \$(git rev-parse HEAD), pinned $MAGPIE_FFMPEG_COMMIT"; exit 1; }
 
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE \
         --extra-cflags="\$FF_CFLAGS" --extra-cxxflags="\$FF_CXXFLAGS" --extra-libs="\$FF_LIBS" \
         --extra-ldflags="\$FF_LDFLAGS" --extra-ldexeflags="\$FF_LDEXEFLAGS"'$RPATH_LDEXEFLAGS' \
         --cc="\$CC" --cxx="\$CXX" --ar="\$AR" --ranlib="\$RANLIB" --nm="\$NM" \
-        --extra-version="\$(date +%Y%m%d)" || { cat ffbuild/config.log; exit 1; }
+        --extra-version='$MAGPIE_EXTRA_VERSION' || { cat ffbuild/config.log; exit 1; }
     make -j\$(nproc) V=1
     make install install-doc
 EOF
@@ -57,6 +63,7 @@ if [[ -n "$FFBUILD_OUTPUT_DIR" ]]; then
     mkdir -p "$FFBUILD_OUTPUT_DIR"
     package_variant ffbuild/prefix "$FFBUILD_OUTPUT_DIR"
     [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$FFBUILD_OUTPUT_DIR/LICENSE.txt"
+    echo "$MAGPIE_VERSION" > "$FFBUILD_OUTPUT_DIR/VERSION.txt"
     rm -rf ffbuild
     exit 0
 fi
@@ -69,6 +76,7 @@ mkdir -p "ffbuild/pkgroot/$BUILD_NAME"
 package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "ffbuild/pkgroot/$BUILD_NAME/LICENSE.txt"
+echo "$MAGPIE_VERSION" > "ffbuild/pkgroot/$BUILD_NAME/VERSION.txt"
 
 cd ffbuild/pkgroot
 if [[ "${TARGET}" == win* ]]; then
