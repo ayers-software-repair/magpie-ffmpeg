@@ -1,3 +1,27 @@
+diff --git a/src/30-helpers.sh b/src/30-helpers.sh
+index 13cba85..93a7b00 100644
+--- a/src/30-helpers.sh
++++ b/src/30-helpers.sh
+@@ -202,6 +202,19 @@ download() {
+         echo "No download URL supplied." >&2
+         exit 1
+     fi
++    # GNU's own servers time out often enough to fail a build, so kernel.org's mirror of the
++    # same tree is tried first. The package checksum verifies the file whichever source gave it.
++    for DOWNLOAD_URL in "${DOWNLOAD_URLS[@]}"; do
++        case "$DOWNLOAD_URL" in
++        https://ftp.gnu.org/gnu/* | https://ftpmirror.gnu.org/gnu/*)
++            DOWNLOAD_URLS=("https://mirrors.kernel.org/gnu/${DOWNLOAD_URL#*/gnu/}" "${DOWNLOAD_URLS[@]}")
++            DOWNLOAD_SHAS=("" "${DOWNLOAD_SHAS[@]}")
++            DOWNLOAD_SHA_EXPLICIT=(0 "${DOWNLOAD_SHA_EXPLICIT[@]}")
++            break
++            ;;
++        esac
++    done
++
+ 
+     if [ -z "$DOWNLOAD_FILE" ]; then
+         DOWNLOAD_FILE="${DOWNLOAD_URLS[0]##*/}"
 diff --git a/src/95-ffmpeg.sh b/src/95-ffmpeg.sh
 index efe472b..ae772a7 100644
 --- a/src/95-ffmpeg.sh
