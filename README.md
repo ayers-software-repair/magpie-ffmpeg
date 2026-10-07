@@ -55,6 +55,34 @@ Each release carries the source of its binaries:
   downloaded, with their build script at its pinned commit and Magpie's patch to it.
 
 Join the parts with `cat`, then untar. The recipe itself is this repository at the release tag.
+Each archive inside the parts is also attached to the release on its own; those copies are the
+download mirror below.
+
+## Download mirror
+
+Every build fetches each dependency archive from an earlier release of this repository first and
+from its upstream second. `magpie/mirror.json` names that release (`url`) and the sha256 of each
+archive it serves (`archives`). A mirror copy is used only when it matches its sha256. An upstream
+download is checked by the recipe's own pin: a pinned commit for the Windows and Linux builds,
+whose archives are fresh tarballs of a clone and never byte-identical, and the package checksum
+for the macOS builds, or the listed sha256 where the package has none. With the mirror
+unreachable, a build downloads everything from upstream as it did before the mirror existed.
+
+The build log names every archive the mirror did not serve, in lines starting `mirror:`. An
+archive is missing from the list when its recipe changed since the mirror release: a new BtbN pin,
+a changed stage script or a new markus-perl commit.
+
+To refresh the mirror after such a change:
+
+1. Cut the release as usual. Its build downloads the changed archives from upstream, and the
+   release attaches every archive the build used.
+2. Run `magpie/mirror-list.sh <that release's tag>`. It rewrites `magpie/mirror.json` from the
+   release's asset list, using the sha256 digest GitHub reports for each asset, and downloads
+   nothing.
+3. Commit `magpie/mirror.json`. The next build reads every archive from that release.
+
+The list is read when a build downloads, not cached. Changing it does not invalidate the macOS
+dependency cache or the download cache.
 
 ## Upstream recipe notes
 

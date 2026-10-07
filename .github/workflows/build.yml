@@ -419,6 +419,14 @@ jobs:
           # Release assets must each be under 2 GiB.
           tar -cf - -T deps-src.txt | split -b 1900M -d -a 1 - "release/magpie-ffmpeg-$TAG-deps-src.tar.part"
           tar -cf - -C macos-deps-src . | split -b 1900M -d -a 1 - "release/magpie-ffmpeg-$TAG-macos-deps-src.tar.part"
+          # Each archive also goes up on its own: the download mirror magpie/mirror.json points at.
+          for archive in $(<deps-src.txt) macos-deps-src/*; do
+            if [[ -e "release/${archive##*/}" ]]; then
+              echo "::error::Two release assets would be named ${archive##*/}"
+              exit 1
+            fi
+            cp "$archive" release/
+          done
 
           (cd release && sha256sum -- * > checksums.sha256)
 
@@ -434,6 +442,7 @@ jobs:
           - $TARBALL: the FFmpeg release tarball, sha256 $MAGPIE_TARBALL_SHA256.
           - magpie-ffmpeg-$TAG-deps-src.tar.part*: the dependency sources the Windows and Linux builds mounted, exactly as the recipe downloaded them before building. Join the parts with cat, then untar.
           - magpie-ffmpeg-$TAG-macos-deps-src.tar.part*: every source archive the macOS builds downloaded, their build script at its pinned commit and Magpie's patch to it.
+          - Each archive from those parts, also attached on its own; checksums.sha256 lists them.
           - The build recipe: this repository at tag $TAG, the Source code archives below.
           EOF
       - name: Create release

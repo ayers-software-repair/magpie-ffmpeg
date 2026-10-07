@@ -66,6 +66,8 @@ git -C "$WORK/ffmpeg-build-script" apply "$REPO_ROOT/magpie/markus-perl.patch"
 
 export MAGPIE_TARBALL_URL MAGPIE_TARBALL_SHA256 MAGPIE_FFMPEG_TAG MAGPIE_EXTRA_VERSION
 export MAGPIE_CONFIGURE_FLAGS="$FF_CONFIGURE"
+# The patched download() tries the mirror it names first (README.md, Download mirror).
+export MAGPIE_MIRROR_LIST="$REPO_ROOT/magpie/mirror.json"
 
 # rav1e is left out because cargo fetches its crates during the build, so they would be
 # missing from the published corresponding source. Magpie never encodes with it.

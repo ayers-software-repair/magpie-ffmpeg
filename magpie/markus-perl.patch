@@ -1,5 +1,5 @@
 diff --git a/src/30-helpers.sh b/src/30-helpers.sh
-index 13cba85..93a7b00 100644
+index 13cba85..35aac0b 100644
 --- a/src/30-helpers.sh
 +++ b/src/30-helpers.sh
 @@ -202,6 +202,19 @@ download() {
@@ -22,6 +22,32 @@ index 13cba85..93a7b00 100644
  
      if [ -z "$DOWNLOAD_FILE" ]; then
          DOWNLOAD_FILE="${DOWNLOAD_URLS[0]##*/}"
+@@ -219,6 +232,25 @@ download() {
+     DOWNLOAD_SHA_VAR=$(package_sha_var "$CURRENT_PACKAGE_NAME")
+     DOWNLOAD_PACKAGE_SHA="${!DOWNLOAD_SHA_VAR}"
+ 
++    # Magpie's mirror (MAGPIE_MIRROR_LIST, magpie/mirror.json) is tried first for an archive it
++    # lists. Its sha256 checks the mirror copy and any upstream source that has no checksum.
++    if [ -n "${MAGPIE_MIRROR_LIST:-}" ]; then
++        MIRROR_SHA="$(jq -r --arg n "$DOWNLOAD_FILE" '.archives[$n] // empty' "$MAGPIE_MIRROR_LIST" 2>/dev/null || true)"
++        if [ -n "$MIRROR_SHA" ]; then
++            for DOWNLOAD_INDEX in "${!DOWNLOAD_URLS[@]}"; do
++                if [ "${DOWNLOAD_SHA_EXPLICIT[$DOWNLOAD_INDEX]}" -eq 0 ] && [ -z "$DOWNLOAD_PACKAGE_SHA" ]; then
++                    DOWNLOAD_SHAS[DOWNLOAD_INDEX]="$MIRROR_SHA"
++                    DOWNLOAD_SHA_EXPLICIT[DOWNLOAD_INDEX]=1
++                fi
++            done
++            DOWNLOAD_URLS=("$(jq -r .url "$MAGPIE_MIRROR_LIST")/$DOWNLOAD_FILE" "${DOWNLOAD_URLS[@]}")
++            DOWNLOAD_SHAS=("$MIRROR_SHA" "${DOWNLOAD_SHAS[@]}")
++            DOWNLOAD_SHA_EXPLICIT=(1 "${DOWNLOAD_SHA_EXPLICIT[@]}")
++        else
++            echo "mirror: $DOWNLOAD_FILE is not in magpie/mirror.json"
++        fi
++    fi
++
+     DOWNLOAD_FILE_NEEDS_DOWNLOAD=0
+     if [ -f "$DOWNLOAD_PATH/$DOWNLOAD_FILE" ] && [ -s "$DOWNLOAD_PATH/$DOWNLOAD_FILE" ]; then
+         echo "$DOWNLOAD_FILE has already been downloaded and is not empty."
 diff --git a/src/95-ffmpeg.sh b/src/95-ffmpeg.sh
 index efe472b..17f94f1 100644
 --- a/src/95-ffmpeg.sh
