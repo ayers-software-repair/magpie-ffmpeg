@@ -321,8 +321,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # The built dependencies are cached, keyed on everything that decides them, so a pin
+      # change misses and they are built again. No restore-keys: a stale tree never restores.
+      # The folder is fixed because the built libraries record their absolute paths.
+      - name: Dependency cache key
+        id: deps
+        run: |
+          source magpie/vars.sh
+          markus="$(sed -n 's/^MARKUS_COMMIT="\([0-9a-f]*\)"$/\1/p' magpie/macos-build.sh)"
+          [[ $markus ]] || { echo "::error::MARKUS_COMMIT not found in magpie/macos-build.sh"; exit 1; }
+          echo "dir=$RUNNER_TEMP/macos-build" >> "$GITHUB_OUTPUT"
+          echo "key=macos-deps-$RUNNER_OS-$RUNNER_ARCH-$markus-$MAGPIE_FFMPEG_TAG-${{ hashFiles('magpie/macos-build.sh', 'magpie/markus-perl.patch') }}" >> "$GITHUB_OUTPUT"
+      - name: Restore dependencies
+        id: restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.deps.outputs.dir }}
+          key: ${{ steps.deps.outputs.key }}
+      - name: Build dependencies
+        if: ${{ steps.restore.outputs.cache-hit != 'true' }}
+        run: bash magpie/macos-build.sh dependencies
+        env:
+          MAGPIE_MACOS_BUILD_DIR: ${{ steps.deps.outputs.dir }}
+      # Saved before FFmpeg is built, so a failure after this point keeps the libraries.
+      - name: Save dependencies
+        if: ${{ steps.restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.deps.outputs.dir }}
+          key: ${{ steps.restore.outputs.cache-primary-key }}
       - name: Build ffmpeg
         run: bash magpie/macos-build.sh
+        env:
+          MAGPIE_MACOS_BUILD_DIR: ${{ steps.deps.outputs.dir }}
       - name: Verify on its own platform
         run: bash magpie/verify-build.sh artifacts/ffmpeg-*.tar.xz
       - name: Upload archive

@@ -23,22 +23,27 @@ index 13cba85..93a7b00 100644
      if [ -z "$DOWNLOAD_FILE" ]; then
          DOWNLOAD_FILE="${DOWNLOAD_URLS[0]##*/}"
 diff --git a/src/95-ffmpeg.sh b/src/95-ffmpeg.sh
-index efe472b..ae772a7 100644
+index efe472b..17f94f1 100644
 --- a/src/95-ffmpeg.sh
 +++ b/src/95-ffmpeg.sh
-@@ -11,10 +11,7 @@
+@@ -11,11 +11,13 @@
  # the .git -> .git.bak dance below, which keeps ffmpeg from describing *this*
  # repository instead of its own tree.
  
 -EXTRA_VERSION=""
 -if [[ "$OSTYPE" == "darwin"* ]]; then
 -    EXTRA_VERSION="${FFMPEG_VERSION}"
--fi
-+EXTRA_VERSION="${MAGPIE_EXTRA_VERSION:?}"
++# Stops once every dependency is built, so they can be cached before ffmpeg is.
++if [ -n "${MAGPIE_DEPENDENCIES_ONLY:-}" ]; then
++    exit 0
+ fi
  
++EXTRA_VERSION="${MAGPIE_EXTRA_VERSION:?}"
++
  if [ -d "$CWD/.git" ]; then
      echo -e "\nTemporarily moving .git dir to .git.bak to workaround ffmpeg build bug" #causing ffmpeg version number to be wrong
-@@ -45,7 +42,9 @@ if [ "$FFMPEG_VERSION" = "snapshot" ]; then
+     mv "$CWD/.git" "$CWD/.git.bak"
+@@ -45,7 +47,9 @@ if [ "$FFMPEG_VERSION" = "snapshot" ]; then
  else
      FFMPEG_ARCHIVE="FFmpeg-release-$FFMPEG_VERSION.tar.gz"
  fi
@@ -49,7 +54,7 @@ index efe472b..ae772a7 100644
  
  # Keyed on X11 actually being absent, not on the architecture: an Intel Mac with
  # XQuartz keeps x11grab/xcbgrab/xv. vaapi needs no disable - build_vaapi() in
-@@ -58,7 +57,7 @@ fi
+@@ -58,7 +62,7 @@ fi
  
  # shellcheck disable=SC2086
  
@@ -58,6 +63,36 @@ index efe472b..ae772a7 100644
      --disable-debug \
      --disable-shared \
      --enable-pthreads \
+diff --git a/src/packages/10-build-tools.sh b/src/packages/10-build-tools.sh
+index ec82ad1..9228dd9 100644
+--- a/src/packages/10-build-tools.sh
++++ b/src/packages/10-build-tools.sh
+@@ -21,6 +21,13 @@ build_giflib() {
+ }
+ 
+ build_pkg_config() {
++    # Outside the build guard: the export reaches every later configure, ffmpeg's too,
++    # so it must happen whether or not pkg-config is already built.
++    if [[ "$OSTYPE" == "darwin"* ]]; then
++        CFLAGS+=" -Wno-int-conversion" # pkg-config 0.29.2 has a warning that is treated as an error
++        CFLAGS+=" -Wno-error=int-conversion"
++        export CFLAGS
++    fi
+     if build "pkg-config" "${VER_PKG_CONFIG[0]}"; then
+         # Keep pkgconfig.freedesktop.org first because it is the historical upstream archive,
+         # but fall back to a neutral public mirror that also keeps older releases. The GitHub
+@@ -30,11 +37,6 @@ build_pkg_config() {
+             "https://sourceforge.net/projects/bootstrappable-files/files/live-bootstrap-mirror/pkg-config-$CURRENT_PACKAGE_VERSION.tar.gz/download"
+         )
+         download "${DOWNLOAD_SOURCES[@]}" "pkg-config-$CURRENT_PACKAGE_VERSION.tar.gz"
+-        if [[ "$OSTYPE" == "darwin"* ]]; then
+-            CFLAGS+=" -Wno-int-conversion" # pkg-config 0.29.2 has a warning that is treated as an error
+-            CFLAGS+=" -Wno-error=int-conversion"
+-            export CFLAGS
+-        fi
+         # pkg-config 0.29.2 bundles a glib that uses "bool" as a struct member name, so
+         # goption.c does not compile under C23. See pre_c23_cflag.
+         execute ./configure --silent --prefix="${WORKSPACE}" --with-pc-path="${WORKSPACE}"/lib/pkgconfig --with-internal-glib CFLAGS="${CFLAGS}$(pre_c23_cflag)"
 diff --git a/src/packages/30-video.sh b/src/packages/30-video.sh
 index 36be4f0..0836be5 100644
 --- a/src/packages/30-video.sh
@@ -80,3 +115,19 @@ index 36be4f0..0836be5 100644
      if build "x265" "${VER_X265[0]}"; then
          download "https://bitbucket.org/multicoreware/x265_git/get/$X265_COMMIT.tar.gz" "x265-$CURRENT_PACKAGE_VERSION.tar.gz"
  
+diff --git a/src/packages/50-image.sh b/src/packages/50-image.sh
+index 033fc12..9a7978a 100644
+--- a/src/packages/50-image.sh
++++ b/src/packages/50-image.sh
+@@ -4,9 +4,10 @@
+ ##
+ 
+ build_libpng() {
++    # Outside the build guard for the same reason as the CFLAGS export in build_pkg_config.
++    export LDFLAGS="${LDFLAGS}"
+     if build "libpng" "${VER_LIBPNG[0]}"; then
+         download "https://sourceforge.net/projects/libpng/files/libpng16/$CURRENT_PACKAGE_VERSION/libpng-$CURRENT_PACKAGE_VERSION.tar.gz" "libpng-$CURRENT_PACKAGE_VERSION.tar.gz"
+-        export LDFLAGS="${LDFLAGS}"
+         # shellcheck disable=SC2153 # CFLAGS, not a typo for CPPFLAGS; it is set in 20-globals.sh
+         export CPPFLAGS="${CFLAGS}"
+         execute ./configure --prefix="${WORKSPACE}" --disable-shared --enable-static
