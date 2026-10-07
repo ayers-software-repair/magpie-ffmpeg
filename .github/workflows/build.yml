@@ -1,7 +1,7 @@
 name: Build FFmpeg
 
-# A pushed tag such as 8.1.3-1 builds, proves and publishes one release under that tag.
-# A manual run builds and proves the chosen targets and keeps them as workflow artifacts only.
+# A run on a release tag such as 8.1.3-1, whether the tag was pushed or the workflow was dispatched on it,
+# builds, proves and publishes one release under that tag. A manual run on a branch keeps its builds as artifacts.
 on:
   push:
     tags:
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Tag matches the pin and has no release yet
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.ref_type == 'tag' }}
         run: |
           source magpie/vars.sh
           if [[ "$GITHUB_REF_NAME" != "$MAGPIE_RELEASE_TAG" ]]; then
@@ -58,7 +58,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
   build_base:
     name: Build base image
-    if: ${{ github.event_name == 'push' || inputs.targets == 'all' }}
+    if: ${{ github.ref_type == 'tag' || inputs.targets == 'all' }}
     needs: pre_check
     runs-on: ubuntu-latest
     steps:
@@ -339,7 +339,7 @@ jobs:
           path: artifacts/${{ matrix.target }}-deps-src
   publish_release:
     name: Publish release
-    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    if: ${{ github.ref_type == 'tag' }}
     needs: [verify, build_macos]
     runs-on: ubuntu-latest
     steps:
